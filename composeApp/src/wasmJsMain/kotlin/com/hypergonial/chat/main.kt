@@ -76,7 +76,6 @@ fun main() {
 
     window.onbeforeunload =
         {
-            println("Saving state") // Never printed
             localStorage[KEY_SAVED_STATE] = stateKeeper.save().encodeToString()
             null
         }
