@@ -13,9 +13,17 @@ import com.arkivanov.decompose.ExperimentalDecomposeApi
 import com.arkivanov.essenty.lifecycle.LifecycleRegistry
 import com.arkivanov.essenty.lifecycle.resume
 import com.arkivanov.essenty.lifecycle.stop
+import com.arkivanov.essenty.statekeeper.SerializableContainer
 import com.arkivanov.essenty.statekeeper.StateKeeperDispatcher
 import com.hypergonial.chat.view.components.DefaultRootComponent
 import kotlinx.browser.document
+import kotlinx.browser.localStorage
+import kotlinx.browser.window
+import kotlinx.serialization.json.Json
+import org.w3c.dom.get
+import org.w3c.dom.set
+
+private const val KEY_SAVED_STATE = "SAVED_STATE"
 
 private val lightColorScheme = lightColorScheme(
     primary = Color(0xFF476810),
@@ -55,10 +63,10 @@ fun AppTheme(
 
 }
 
-@OptIn(ExperimentalComposeUiApi::class, ExperimentalDecomposeApi::class)
+@OptIn(ExperimentalComposeUiApi::class)
 fun main() {
     val lifecycle = LifecycleRegistry()
-    val stateKeeper = StateKeeperDispatcher()
+    val stateKeeper = StateKeeperDispatcher(savedState = localStorage[KEY_SAVED_STATE]?.decodeSerializableContainer())
 
     val root = DefaultRootComponent(
         ctx = DefaultComponentContext(lifecycle, stateKeeper),
@@ -66,9 +74,26 @@ fun main() {
 
     lifecycle.attachToDocument()
 
+    window.onbeforeunload =
+        {
+            println("Saving state") // Never printed
+            localStorage[KEY_SAVED_STATE] = stateKeeper.save().encodeToString()
+            null
+        }
+
     ComposeViewport(document.body!!) {
         AppTheme {
             App(root)
         }
     }
 }
+
+fun SerializableContainer.encodeToString(): String =
+    Json.encodeToString(SerializableContainer.serializer(), this)
+
+fun String.decodeSerializableContainer(): SerializableContainer? =
+    try {
+        Json.decodeFromString(SerializableContainer.serializer(), this)
+    } catch (e: Exception) {
+        null
+    }
